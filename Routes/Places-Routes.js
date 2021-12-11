@@ -9,4 +9,6 @@ router.get("/:placeID", placeControllers.getPlacesByPlaceID);
 
 router.get("/user/:userID", placeControllers.getPlacesByUserID);
 
+router.post('/',placeControllers.addNewPlace);
+
 module.exports = router;

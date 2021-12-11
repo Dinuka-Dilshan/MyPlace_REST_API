@@ -3,7 +3,7 @@ const app = express();
 
 const placesRoutes = require('./Routes/Places-Routes');
 
-app.use(express.urlencoded({extended:true}));
+app.use(express.json());
 app.use('/api/places',placesRoutes);
 
 

@@ -1,4 +1,4 @@
-const HttpError = require('../Models/HttpError');
+const HttpError = require("../Models/HttpError");
 const dummyPlaces = require("../DUMMY_DATA/places");
 
 const getAllPlaces = (req, res, next) => {
@@ -37,6 +37,30 @@ const getPlacesByUserID = (req, res, next) => {
   }
 };
 
-exports.getAllPlaces = getAllPlaces;
-exports.getPlacesByPlaceID = getPlacesByPlaceID;
-exports.getPlacesByUserID = getPlacesByUserID;
+const addNewPlace = (req, res, next) => {
+  const { id, name, description, image, address, location, creatorID } = req.body;
+
+  const newPlace = {
+    id,
+    name,
+    description,
+    image,
+    address,
+    location,
+    creatorID,
+  }
+
+  dummyPlaces.push(newPlace);
+
+  res.status(201).json({
+    message: "OK",
+    place:newPlace
+  });
+};
+
+module.exports = {
+  getAllPlaces,
+  getPlacesByPlaceID,
+  getPlacesByUserID,
+  addNewPlace,
+};
