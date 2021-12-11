@@ -21,9 +21,9 @@ const DUMMY_PLACES = [
         lat: 5.9549,
         lng: 80.5550
       },
-      creatorID: '2'
+      creatorID: '1'
     }
   ];
 
 
-  module.exports = DUMMY_PLACES;
+  module.exports = DUMMY_PLACES; 
