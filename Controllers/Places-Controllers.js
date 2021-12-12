@@ -1,6 +1,7 @@
 const HttpError = require("../Models/HttpError");
 let dummyPlaces = require("../DUMMY_DATA/places");
 const { v4: uuidv4 } = require("uuid");
+const { validationResult } = require("express-validator");
 
 const getAllPlaces = (req, res, next) => {
   res.json({
@@ -29,7 +30,7 @@ const getPlacesByUserID = (req, res, next) => {
     return place.creatorID === userID;
   });
 
-  if (places || places.length>0) {
+  if (places || places.length > 0) {
     res.json({
       places,
     });
@@ -39,6 +40,11 @@ const getPlacesByUserID = (req, res, next) => {
 };
 
 const addNewPlace = (req, res, next) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
   const { name, description, image, address, location, creatorID } = req.body;
 
   const newPlace = {
@@ -59,6 +65,12 @@ const addNewPlace = (req, res, next) => {
 };
 
 const updatePlace = (req, res, next) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
   const placeID = req.params.placeID;
   const { description, name } = req.body;
 
@@ -76,21 +88,19 @@ const updatePlace = (req, res, next) => {
   }
 };
 
-
-const deletePlace = (req,res,next)=>{
+const deletePlace = (req, res, next) => {
   const placeID = req.params.placeID;
   const previousLength = dummyPlaces.length;
-  dummyPlaces = dummyPlaces.filter(place=>place.id !== placeID);
+  dummyPlaces = dummyPlaces.filter((place) => place.id !== placeID);
 
-  if(previousLength !== dummyPlaces.length){
+  if (previousLength !== dummyPlaces.length) {
     res.status(200).json({
-      message:'Deleted'
+      message: "Deleted",
     });
-  }else{
+  } else {
     next(new HttpError("Cnnot find any place for the given place id", 404));
   }
-}
-
+};
 
 module.exports = {
   getAllPlaces,
@@ -98,5 +108,5 @@ module.exports = {
   getPlacesByUserID,
   addNewPlace,
   updatePlace,
-  deletePlace
+  deletePlace,
 };
