@@ -18,9 +18,6 @@ router.post(
     .isLength({ min: 5 })
     .withMessage("minimum length is 5"),
   check("name").notEmpty().withMessage("Name cannot be empty"),
-  check("address")
-  .notEmpty()
-  .withMessage("address cannot be empty"),
   placeControllers.addNewPlace
 );
 

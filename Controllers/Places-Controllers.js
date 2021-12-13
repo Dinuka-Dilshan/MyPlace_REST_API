@@ -2,6 +2,7 @@ const HttpError = require("../Models/HttpError");
 let dummyPlaces = require("../DUMMY_DATA/places");
 const { v4: uuidv4 } = require("uuid");
 const { validationResult } = require("express-validator");
+const getCoordinates = require("../Util/Location");
 
 const getAllPlaces = (req, res, next) => {
   res.json({
@@ -39,13 +40,22 @@ const getPlacesByUserID = (req, res, next) => {
   }
 };
 
-const addNewPlace = (req, res, next) => {
+const addNewPlace = async (req, res, next) => {
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
-  const { name, description, image, address, location, creatorID } = req.body;
+  const { name, description, image, address, creatorID } = req.body;
+
+  let coordinates;
+
+  try{
+    coordinates =  await getCoordinates(address);
+  }catch(error){
+      return next(new HttpError('Cannot get coordinates for the address',422));
+  }
+
 
   const newPlace = {
     id: uuidv4(),
@@ -53,7 +63,7 @@ const addNewPlace = (req, res, next) => {
     description,
     image,
     address,
-    location,
+    location:coordinates,
     creatorID,
   };
 
