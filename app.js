@@ -25,7 +25,7 @@ app.use((error, req, res, next) => {
   }
 });
 
-app.listen(8080,0.0.0.0, (error) => {
+app.listen(8080,"0.0.0.0", (error) => {
   if (!error) {
     console.log("server strted on port 3000");
   }
