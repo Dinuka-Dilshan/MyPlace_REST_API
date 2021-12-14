@@ -3,11 +3,18 @@ let dummyPlaces = require("../DUMMY_DATA/places");
 const { v4: uuidv4 } = require("uuid");
 const { validationResult } = require("express-validator");
 const getCoordinates = require("../Util/Location");
+const Place = require('../Models/Place');
 
-const getAllPlaces = (req, res, next) => {
-  res.json({
-    place: dummyPlaces,
-  });
+
+const getAllPlaces = async (req, res, next) => {
+  
+  try{
+    const places = await Place.find().exec();
+    res.json(places);
+  }catch(error){
+    next(new HttpError(error,500));
+  }
+
 };
 
 const getPlacesByPlaceID = (req, res, next) => {
@@ -46,7 +53,7 @@ const addNewPlace = async (req, res, next) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
-  const { name, description, image, address, creatorID } = req.body;
+  const { name, description,  address, createrID } = req.body;
 
   let coordinates;
 
@@ -57,21 +64,26 @@ const addNewPlace = async (req, res, next) => {
   }
 
 
-  const newPlace = {
-    id: uuidv4(),
+  const newPlace = new Place({
     name,
     description,
-    image,
+    image:'https://tinyurl.com/nckay2pp',
     address,
     location:coordinates,
-    creatorID,
-  };
+    createrID,
+  })
 
-  dummyPlaces.push(newPlace);
-  res.status(201).json({
-    message: "OK",
-    place: newPlace,
-  });
+  try{
+    await newPlace.save();
+    res.status(201).json({
+      message: "OK",
+      place: newPlace,
+    });
+  }catch(error){
+    next(new HttpError(error,500));
+  }
+
+  
 };
 
 const updatePlace = (req, res, next) => {
