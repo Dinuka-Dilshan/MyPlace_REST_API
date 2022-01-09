@@ -1,62 +1,78 @@
-const users = require('../DUMMY_DATA/users');
-const HttpError = require('../Models/HttpError');
-const { v4: uuidv4 } = require("uuid"); 
-const {validationResult} = require('express-validator');
+const HttpError = require("../Models/HttpError");
+const { validationResult } = require("express-validator");
+const User = require("../Models/User");
 
-const getAllUsers = (req,res,next)=>{
-    res.status(200).json({
-        users
-    })
+const getAllUsers = async (req, res, next) => {
+  let allUsers;
+  try {
+    allUsers = await User.find({}, "-password").exec();
+  } catch (error) {
+    return next(new HttpError("cannot load data", 500));
+  }
+
+  filteredUsers = allUsers.map((user) => { 
+    const { name, email, image, places, _id: id } = user;
+    return { name, email, image, places, id };
+  });
+  res.status(200).json({
+    users: filteredUsers,
+  });
 };
 
-const login = (req,res,next)=>{
+const login = async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
 
-    const errors = validationResult(req);
-    if(!errors.isEmpty()){
-        return res.status(400).json({ errors: errors.array() });
-    }
+  const { email, password } = req.body;
 
-    const {email, password} = req.body;
-    const foundUser = users.find(user=>user.email === email && user.password === password);
+  let foundUser;
+  try {
+    foundUser = await User.findOne({ email, password }).exec();
+  } catch (error) {
+    return next(new HttpError("cannot find user", 404));
+  }
 
-    if(foundUser && foundUser.email === email){
-        res.json({
-            message:'Logged In'
-        })
-    }else{
-        next(new HttpError('Cannot find a user. Credentials seems to be wrong',401));
-    }
+  if (foundUser && foundUser.email === email) {
+    res.json({
+      message: "Logged In",
+    });
+  } else {
+    return next(
+      new HttpError("Cannot find a user. Credentials seems to be wrong", 401)
+    );
+  }
 };
 
-const signup = (req,res,next)=>{
+const signup = async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res
+      .status(400)
+      .json({ errors: errors.array()[0].param + ` is invalid` });
+  }
 
-    const errors = validationResult(req);
-    if(!errors.isEmpty()){
-        return res.status(400).json({ errors: errors.array() });
-    }
+  const { name, email, password, image } = req.body;
 
-    const {name, email, password} = req.body;
-    const isUserFound = users.find(user=>user.email === email);
+  const addedUser = new User({
+    name,
+    email,
+    password,
+    image,
+    places:[]
+  });
 
-    if(isUserFound){
-        next(new HttpError('Email exists',409));
-    }
-
-    users.push({
-        id:uuidv4(),
-        name,
-        email,
-        password
-    })
-
-    res.status(201).json({
-        message:'Successfull'
-    })
+  try {
+    await addedUser.save();
+    res.json({ user: addedUser });
+  } catch (error) {
+    return next(error);
+  }
 };
-
 
 module.exports = {
-    getAllUsers,
-    login,
-    signup
-}
+  getAllUsers,
+  login,
+  signup,
+};

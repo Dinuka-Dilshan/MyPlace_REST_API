@@ -1,49 +1,58 @@
 const HttpError = require("../Models/HttpError");
-let dummyPlaces = require("../DUMMY_DATA/places");
-const { v4: uuidv4 } = require("uuid");
 const { validationResult } = require("express-validator");
 const getCoordinates = require("../Util/Location");
-const Place = require('../Models/Place');
-
+const Place = require("../Models/Place");
+const User = require("../Models/User");
+const mongoose = require("mongoose");
 
 const getAllPlaces = async (req, res, next) => {
-  
-  try{
+  try {
     const places = await Place.find().exec();
     res.json(places);
-  }catch(error){
-    next(new HttpError(error,500));
+  } catch (error) {
+    next(new HttpError(error, 500));
   }
-
 };
 
-const getPlacesByPlaceID = (req, res, next) => {
+const getPlacesByPlaceID = async (req, res, next) => {
   const placeID = req.params.placeID;
-  const place = dummyPlaces.find((place) => {
-    return place.id === placeID;
-  });
+  let foundPlace;
 
-  if (place) {
+  try {
+    foundPlace = await Place.findById(placeID).exec();
+  } catch (error) {
+    return next(
+      new HttpError("Cnnot find any place for the given place id", 500)
+    );
+  }
+
+  if (foundPlace) {
+    foundPlace = { ...foundPlace.toObject(), id: foundPlace._id };
+    delete foundPlace._id;
+    delete foundPlace.__v;
     res.json({
-      place,
+      place: foundPlace,
     });
   } else {
     next(new HttpError("Cnnot find any place for the given place id", 404));
   }
 };
 
-const getPlacesByUserID = (req, res, next) => {
+const getPlacesByUserID = async (req, res, next) => {
   const userID = req.params.userID;
-  const places = dummyPlaces.filter((place) => {
-    return place.creatorID === userID;
-  });
+  let userWithPlaces;
 
-  if (places || places.length > 0) {
-    res.json({
-      places,
-    });
+  try {
+    userWithPlaces = await User.findById(userID).populate('places');
+  } catch (error) {
+    return next(new HttpError("Cannot fetch data", 500));
+  }
+  if (userWithPlaces.places.length === 0) {
+    return next(new HttpError("Cannot find a place for the given userID", 500));
   } else {
-    next(new HttpError("Cnnot find any place for the given User id", 404));
+    res.json({
+      places:userWithPlaces.places
+    });
   }
 };
 
@@ -53,40 +62,55 @@ const addNewPlace = async (req, res, next) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
-  const { name, description,  address, createrID } = req.body;
+  const { name, description, address, createrID } = req.body;
 
   let coordinates;
 
-  try{
-    coordinates =  await getCoordinates(address);
-  }catch(error){
-      return next(new HttpError('Cannot get coordinates for the address',422));
+  try {
+    coordinates = await getCoordinates(address);
+  } catch (error) {
+    return next(new HttpError("Cannot get coordinates for the address", 422));
   }
-
 
   const newPlace = new Place({
     name,
     description,
-    image:'https://tinyurl.com/nckay2pp',
+    image: "https://tinyurl.com/nckay2pp",
     address,
-    location:coordinates,
+    location: coordinates,
     createrID,
-  })
+  });
 
-  try{
-    await newPlace.save();
+  let user;
+
+  try {
+    user = await User.findById(createrID);
+  } catch (error) {
+    return next(new HttpError("creating place failed", 500));
+  }
+
+  if (!user) {
+    return next(new HttpError("cannot find a user for the provided id", 404));
+  }
+
+  try {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    await newPlace.save({ session: session });
+    user.places.push(newPlace);
+    await user.save({ session: session });
+    await session.commitTransaction();
+
     res.status(201).json({
       message: "OK",
       place: newPlace,
     });
-  }catch(error){
-    next(new HttpError(error,500));
+  } catch (error) {
+    next(new HttpError(error, 500));
   }
-
-  
 };
 
-const updatePlace = (req, res, next) => {
+const updatePlace = async (req, res, next) => {
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
@@ -95,33 +119,55 @@ const updatePlace = (req, res, next) => {
 
   const placeID = req.params.placeID;
   const { description, name } = req.body;
-
-  const place = { ...dummyPlaces.find((place) => place.id === placeID) };
-
-  if (place.id) {
-    place.description = description;
-    place.name = name;
-    dummyPlaces[placeID] = place;
-    res.status(200).json({
-      place,
-    });
-  } else {
-    next(new HttpError("Cnnot find any place for the given place id", 404));
+  let updatedPlace;
+  try {
+    updatedPlace = await Place.findByIdAndUpdate(
+      placeID,
+      { description, name },
+      { returnDocument: "after" }
+    ).exec();
+  } catch (error) {
+    return next(
+      new HttpError("Cnnot find any place for the given place id", 404)
+    );
   }
+
+  res.status(200).json({
+    place: updatedPlace,
+  });
 };
 
-const deletePlace = (req, res, next) => {
-  const placeID = req.params.placeID;
-  const previousLength = dummyPlaces.length;
-  dummyPlaces = dummyPlaces.filter((place) => place.id !== placeID);
+const deletePlace = async (req, res, next) => {
 
-  if (previousLength !== dummyPlaces.length) {
-    res.status(200).json({
-      message: "Deleted",
-    });
-  } else {
-    next(new HttpError("Cnnot find any place for the given place id", 404));
+  const placeID = req.params.placeID;
+  
+  let foundPlace;
+
+  try {
+    foundPlace = await Place.findById(placeID).populate('createrID');
+  } catch (error) {
+    return next(new HttpError("cannot find such a place", 404));
   }
+
+ 
+  if(!foundPlace){
+    return next(new HttpError("no places found for given id"));
+  }
+
+  try {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    await foundPlace.remove({session:session});
+    foundPlace.createrID.places.pull(foundPlace);
+    await foundPlace.createrID.save({session:session});
+    await session.commitTransaction();
+  } catch (error) {
+    return next(new HttpError("cannot delete the place", 500));
+  }
+
+  res.status(200).json({
+    message: "Deleted",
+  });
 };
 
 module.exports = {

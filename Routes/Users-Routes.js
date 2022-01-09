@@ -16,7 +16,7 @@ router.post(
 router.post(
   "/signup",
   check("email").normalizeEmail().notEmpty().isEmail(),
-  check("password").notEmpty().withMessage('password cannot be empty').isStrongPassword({minLength:8}).withMessage('Minimum length is 8'),
+  check("password").notEmpty().withMessage('password cannot be empty').isLength({min:8}).withMessage('Minimum length is 6'),
   check("name").notEmpty().withMessage('name cannot be empty'),
   usersControllers.signup
 );

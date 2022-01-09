@@ -9,7 +9,7 @@ const productSchema = new mongoose.Schema({
     lat: { type: Number, required: true },
     lng: { type: Number, required: true },
   },
-  createrID: { type: String, required: true },
+  createrID: { type: mongoose.Types.ObjectId, required: true ,ref:'User'}
 });
 
-module.exports =  mongoose.model('Product',productSchema);
+module.exports =  mongoose.model('Place',productSchema);
