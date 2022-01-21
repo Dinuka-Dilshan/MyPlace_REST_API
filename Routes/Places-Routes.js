@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const { check } = require("express-validator");
+const fileUpload = require('../middleware/FileUpload');
+const auth = require('../middleware/auth');
 
 const placeControllers = require("../Controllers/Places-Controllers");
 
@@ -10,8 +12,11 @@ router.get("/:placeID", placeControllers.getPlacesByPlaceID);
 
 router.get("/user/:userID", placeControllers.getPlacesByUserID);
 
+router.use(auth);
+
 router.post(
   "/",
+  fileUpload.single('image'),
   check("description")
     .notEmpty()
     .withMessage("decription cannot be empty")

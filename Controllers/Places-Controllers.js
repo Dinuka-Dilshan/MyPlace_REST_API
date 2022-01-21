@@ -5,6 +5,8 @@ const Place = require("../Models/Place");
 const User = require("../Models/User");
 const mongoose = require("mongoose");
 
+const fs  = require('fs');
+
 const getAllPlaces = async (req, res, next) => {
   try {
     const places = await Place.find().exec();
@@ -30,7 +32,7 @@ const getPlacesByPlaceID = async (req, res, next) => {
     foundPlace = { ...foundPlace.toObject(), id: foundPlace._id };
     delete foundPlace._id;
     delete foundPlace.__v;
-    res.json({
+    res.status(200).json({
       place: foundPlace,
     });
   } else {
@@ -75,7 +77,7 @@ const addNewPlace = async (req, res, next) => {
   const newPlace = new Place({
     name,
     description,
-    image: "https://tinyurl.com/nckay2pp",
+    image:req.file.path,
     address,
     location: coordinates,
     createrID,
@@ -91,20 +93,25 @@ const addNewPlace = async (req, res, next) => {
 
   if (!user) {
     return next(new HttpError("cannot find a user for the provided id", 404));
+    
   }
 
   try {
     const session = await mongoose.startSession();
     session.startTransaction();
     await newPlace.save({ session: session });
+
     user.places.push(newPlace);
-    await user.save({ session: session });
+
+    const places = user.places;
+    await User.findOneAndUpdate({_id:user._id.toString()},{places:places},{ session: session });
     await session.commitTransaction();
 
     res.status(201).json({
-      message: "OK",
+      message: "Place Added Successfully",
       place: newPlace,
     });
+
   } catch (error) {
     next(new HttpError(error, 500));
   }
@@ -119,9 +126,16 @@ const updatePlace = async (req, res, next) => {
 
   const placeID = req.params.placeID;
   const { description, name } = req.body;
-  let updatedPlace;
+  let updatedPlace,foundPlace;
   try {
-    updatedPlace = await Place.findByIdAndUpdate(
+
+   foundPlace = await Place.findById(placeID);
+
+   if(foundPlace.createrID.toString() !== req.userData.userID){
+     return next(new HttpError('You are not allowed to edit this place'),401);
+   }
+
+  updatedPlace = await Place.findByIdAndUpdate(
       placeID,
       { description, name },
       { returnDocument: "after" }
@@ -144,26 +158,41 @@ const deletePlace = async (req, res, next) => {
   let foundPlace;
 
   try {
-    foundPlace = await Place.findById(placeID).populate('createrID');
+    foundPlace = await Place.findById(placeID)
   } catch (error) {
     return next(new HttpError("cannot find such a place", 404));
   }
 
  
   if(!foundPlace){
-    return next(new HttpError("no places found for given id"));
+    return next(new HttpError("no places found for given id",404));
   }
+ 
+  if(foundPlace.createrID.toString() !== req.userData.userID){
+    return next(new HttpError("You are not allowed to delete this place"),401);
+  }
+
+  const imagePath = foundPlace.image;
 
   try {
     const session = await mongoose.startSession();
     session.startTransaction();
     await foundPlace.remove({session:session});
-    foundPlace.createrID.places.pull(foundPlace);
-    await foundPlace.createrID.save({session:session});
+    const foundUser = await User.findById(foundPlace.createrID);
+    console.log(foundUser._id)
+    
+    await User.findOneAndUpdate({_id:foundUser._id.toString()},{ $pullAll: {
+      places: [placeID],
+  },},{session:session});
+
     await session.commitTransaction();
   } catch (error) {
     return next(new HttpError("cannot delete the place", 500));
   }
+
+  fs.unlink(imagePath,(error)=>{
+    
+  })
 
   res.status(200).json({
     message: "Deleted",
