@@ -51,7 +51,7 @@ app.use((error, req, res, next) => {
 mongoose
   .connect(process.env.DATABASE_URL)
   .then(() => {
-    app.listen("5000", (error) => {
+    app.listen(process.env.PORT||5000, (error) => {
       if(!error){
         console.log('connected to database')
       }else{
